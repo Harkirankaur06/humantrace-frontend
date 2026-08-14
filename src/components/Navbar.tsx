@@ -26,7 +26,10 @@ export default function Navbar() {
 
           <Link href="/detect">Detect</Link>
 
-          <Link href="/about">About</Link>
+          <Link
+              href="/about"
+              scroll={false}
+          >About</Link>
 
         </div>
 
