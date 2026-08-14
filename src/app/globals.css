@@ -62,3 +62,16 @@ body {
 .blob2{
   background:#3ec5ff;
 }
+
+.glass:hover{
+  border:1px solid rgba(62,197,255,.4);
+  transition:.3s;
+}
+
+.feature-card {
+  transition: all .35s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+}
