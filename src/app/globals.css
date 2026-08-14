@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #050816;
+  --foreground: #ffffff;
+
+  --card: #101827;
+
+  --primary: #6c63ff;
+
+  --secondary: #3ec5ff;
+
+  --muted: #94a3b8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at top, #16213e 0%, #050816 60%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.glass {
+  background: rgba(255,255,255,.05);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+.gradientText{
+  background: linear-gradient(
+      90deg,
+      #6c63ff,
+      #3ec5ff
+  );
+
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.heroBlob{
+  position:absolute;
+  width:450px;
+  height:450px;
+  border-radius:50%;
+
+  filter:blur(120px);
+
+  opacity:.25;
+}
+
+.blob1{
+  background:#6c63ff;
+}
+
+.blob2{
+  background:#3ec5ff;
 }
