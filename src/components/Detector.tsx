@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import ResultCard from "./ResultCard";
 
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+
 interface PredictionResult {
   prediction: "human" | "ai";
   confidence: number;
@@ -30,7 +32,7 @@ export default function Detector() {
       : text.trim().split(/\s+/).length;
 
   // ============================================================
-  // ANALYZE TEXT
+  // ANALYZE
   // ============================================================
 
   async function analyze() {
@@ -45,8 +47,13 @@ export default function Detector() {
 
     try {
       const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL ||
-        "https://humantrace.onrender.com";
+        process.env.NEXT_PUBLIC_API_URL;
+
+      if (!apiUrl) {
+        throw new Error(
+          "API URL is not configured."
+        );
+      }
 
       const response = await fetch(
         `${apiUrl}/predict`,
@@ -56,33 +63,40 @@ export default function Detector() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            text: text.trim(),
+            text,
           }),
         }
       );
 
-      const data = await response.json();
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "The server returned an invalid response."
+        );
+      }
 
       if (!response.ok) {
         throw new Error(
-          data.error || "Prediction failed."
+          data?.error ||
+            "Prediction failed."
         );
       }
 
       setResult(data);
-
     } catch (err) {
       console.error(
-        "HumanTrace API error:",
+        "Prediction error:",
         err
       );
 
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to connect to HumanTrace API."
+          : "Unable to connect to HumanTrace."
       );
-
     } finally {
       setLoading(false);
     }
@@ -105,7 +119,6 @@ export default function Detector() {
       setText(clip);
       setResult(null);
       setError("");
-
     } catch {
       setError(
         "Clipboard access denied. Please paste the text manually."
@@ -151,25 +164,36 @@ export default function Detector() {
     setResult(null);
 
     try {
+      const fileName =
+        file.name.toLowerCase();
+
       let extractedText = "";
 
       // --------------------------------------------------------
       // PDF
       // --------------------------------------------------------
 
-      if (
-        file.name.toLowerCase().endsWith(".pdf")
-      ) {
-        const pdfjsLib =
-          await import("pdfjs-dist");
-
+      if (fileName.endsWith(".pdf")) {
         const arrayBuffer =
           await file.arrayBuffer();
 
+        /*
+         * PDF.js worker
+         *
+         * We use the worker file from /public.
+         * This avoids Turbopack trying to treat
+         * pdf.worker.mjs as a JavaScript module.
+         */
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "/pdf.worker.min.mjs";
+
         const pdf =
-          await pdfjsLib.getDocument({
-            data: arrayBuffer,
-          }).promise;
+          await pdfjsLib
+            .getDocument({
+              data: arrayBuffer,
+            })
+            .promise;
 
         for (
           let pageNum = 1;
@@ -184,7 +208,13 @@ export default function Detector() {
 
           const pageText =
             content.items
-              .map((item: any) => item.str)
+              .map((item) => {
+                if ("str" in item) {
+                  return item.str;
+                }
+
+                return "";
+              })
               .join(" ");
 
           extractedText +=
@@ -197,7 +227,7 @@ export default function Detector() {
       // --------------------------------------------------------
 
       else if (
-        file.name.toLowerCase().endsWith(".docx")
+        fileName.endsWith(".docx")
       ) {
         const mammoth =
           await import("mammoth");
@@ -215,7 +245,7 @@ export default function Detector() {
       }
 
       // --------------------------------------------------------
-      // INVALID FILE
+      // UNSUPPORTED
       // --------------------------------------------------------
 
       else {
@@ -225,19 +255,18 @@ export default function Detector() {
       }
 
       // --------------------------------------------------------
-      // EMPTY FILE
+      // VALIDATE
       // --------------------------------------------------------
 
       if (!extractedText.trim()) {
         throw new Error(
-          "Could not extract any text from this file."
+          "Could not extract any text from this file. Scanned PDFs may require OCR."
         );
       }
 
       setText(
         extractedText.trim()
       );
-
     } catch (err) {
       console.error(
         "File upload error:",
@@ -249,9 +278,7 @@ export default function Detector() {
           ? err.message
           : "Unable to read the file."
       );
-
     } finally {
-      // Allow the same file to be selected again.
       e.target.value = "";
     }
   }
@@ -263,10 +290,6 @@ export default function Detector() {
   return (
     <>
       <div className="glass rounded-[32px] p-10">
-
-        {/* ---------------------------------------------------- */}
-        {/* HEADER */}
-        {/* ---------------------------------------------------- */}
 
         <h1 className="text-5xl font-bold">
           Detect
@@ -280,10 +303,6 @@ export default function Detector() {
           HumanTrace analyze it.
         </p>
 
-        {/* ---------------------------------------------------- */}
-        {/* TEXTAREA */}
-        {/* ---------------------------------------------------- */}
-
         <textarea
           value={text}
           onChange={(e) => {
@@ -292,16 +311,10 @@ export default function Detector() {
             setError("");
           }}
           placeholder="Paste your article, essay or report here..."
-          className="mt-10 w-full h-72 rounded-3xl bg-slate-900/50 border border-white/10 p-6 outline-none resize-none focus:border-indigo-500/50 transition"
+          className="mt-10 w-full h-72 rounded-3xl bg-slate-900/50 border border-white/10 p-6 outline-none resize-none"
         />
 
-        {/* ---------------------------------------------------- */}
-        {/* STATS + ACTIONS */}
-        {/* ---------------------------------------------------- */}
-
         <div className="flex flex-wrap justify-between mt-6 gap-4">
-
-          {/* Text statistics */}
 
           <div className="text-slate-400">
             <p>
@@ -313,47 +326,31 @@ export default function Detector() {
             </p>
           </div>
 
-          {/* Buttons */}
-
           <div className="flex flex-wrap gap-3">
-
-            {/* Paste */}
 
             <button
               onClick={pasteClipboard}
-              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Clipboard size={18} />
-
               Paste
             </button>
 
-            {/* Clear */}
-
             <button
               onClick={clearText}
-              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Trash2 size={18} />
-
               Clear
             </button>
 
-            {/* Sample */}
-
             <button
               onClick={loadSample}
-              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <FileText size={18} />
-
               Sample
             </button>
-
-            {/* Upload */}
 
             <label className="glass px-5 py-3 rounded-xl flex items-center gap-2 cursor-pointer hover:scale-105 transition">
 
@@ -363,7 +360,7 @@ export default function Detector() {
 
               <input
                 type="file"
-                accept=".pdf,.docx"
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 hidden
                 onChange={uploadFile}
               />
@@ -373,33 +370,23 @@ export default function Detector() {
           </div>
         </div>
 
-        {/* ---------------------------------------------------- */}
-        {/* ERROR */}
-        {/* ---------------------------------------------------- */}
-
         {error && (
           <div className="mt-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-300">
             {error}
           </div>
         )}
 
-        {/* ---------------------------------------------------- */}
-        {/* ANALYZE BUTTON */}
-        {/* ---------------------------------------------------- */}
-
         <button
           onClick={analyze}
-          type="button"
-          disabled={loading || !text.trim()}
-          className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+          disabled={
+            loading ||
+            !text.trim()
+          }
+          className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 flex items-center justify-center gap-3"
         >
           {loading ? (
             <>
-              <Loader2
-                className="animate-spin"
-                size={22}
-              />
-
+              <Loader2 className="animate-spin" />
               Analyzing...
             </>
           ) : (
@@ -409,12 +396,10 @@ export default function Detector() {
 
       </div>
 
-      {/* ------------------------------------------------------ */}
-      {/* RESULT */}
-      {/* ------------------------------------------------------ */}
-
       {result && (
-        <ResultCard result={result} />
+        <ResultCard
+          result={result}
+        />
       )}
     </>
   );
