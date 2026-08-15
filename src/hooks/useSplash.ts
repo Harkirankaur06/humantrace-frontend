@@ -1,20 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export default function useSplash() {
   const [showSplash, setShowSplash] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 4500);
-
-    return () => clearTimeout(timer);
+  const finish = useCallback(() => {
+    console.log("Splash finished");
+    setShowSplash(false);
   }, []);
 
   return {
     showSplash,
-    finish: () => setShowSplash(false),
+    finish,
   };
 }

@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
 import "./globals.css";
-import SplashProvider from "@/components/SplashProvider";
 
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
+import FloatingLetters from "@/components/FloatingLetters";
+import SplashProvider from "@/components/SplashProvider";
 
 export const metadata: Metadata = {
   title: "HumanTrace",
-  description: "AI Text Detection Platform",
+  description: "AI Text Detection",
 };
 
 export default function RootLayout({
@@ -20,13 +16,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={poppins.className}>
+      <body className="bg-[#050816]">
 
-          <SplashProvider>
+        <FloatingLetters />
 
-              {children}
-
-          </SplashProvider>
+        <SplashProvider>
+          <div className="relative z-10">
+            {children}
+          </div>
+        </SplashProvider>
 
       </body>
     </html>

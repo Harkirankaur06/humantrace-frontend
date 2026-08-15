@@ -10,10 +10,15 @@ export default function SplashProvider({
 }) {
   const { showSplash, finish } = useSplash();
 
+  console.log("SplashProvider:", showSplash);
+
   return (
     <>
-      {showSplash && <SplashScreen onFinish={finish} />}
-      {!showSplash && children}
+      {showSplash ? (
+        <SplashScreen onFinish={finish} />
+      ) : (
+        children
+      )}
     </>
   );
 }
