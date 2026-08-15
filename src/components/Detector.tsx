@@ -10,24 +10,30 @@ import {
 } from "lucide-react";
 import ResultCard from "./ResultCard";
 
-type PredictionResult = {
+interface PredictionResult {
   prediction: "human" | "ai";
   confidence: number;
   ai_probability: number;
   human_probability: number;
-};
+}
 
 export default function Detector() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [result, setResult] =
+    useState<PredictionResult | null>(null);
   const [error, setError] = useState("");
 
   const wordCount =
-    text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
+    text.trim() === ""
+      ? 0
+      : text.trim().split(/\s+/).length;
 
   async function analyze() {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      setError("Please enter some text first.");
+      return;
+    }
 
     setLoading(true);
     setResult(null);
@@ -35,7 +41,7 @@ export default function Detector() {
 
     try {
       const response = await fetch(
-        "http://127.0.0.1:5000/predict",
+        `${process.env.NEXT_PUBLIC_API_URL}/predict`,
         {
           method: "POST",
           headers: {
@@ -57,30 +63,35 @@ export default function Detector() {
 
       setResult(data);
 
-    } catch (error) {
-
-      console.error(error);
-
+    } catch (err) {
       setError(
-        "Unable to connect to the HumanTrace backend."
+        err instanceof Error
+          ? err.message
+          : "Something went wrong."
       );
-
     } finally {
-
       setLoading(false);
-
     }
   }
 
   async function pasteClipboard() {
     try {
-      const clip = await navigator.clipboard.readText();
+      const clip =
+        await navigator.clipboard.readText();
+
       setText(clip);
       setResult(null);
       setError("");
+
     } catch {
-      alert("Clipboard access denied.");
+      setError("Clipboard access denied.");
     }
+  }
+
+  function clearText() {
+    setText("");
+    setResult(null);
+    setError("");
   }
 
   function loadSample() {
@@ -92,22 +103,79 @@ export default function Detector() {
     setError("");
   }
 
-  function uploadFile(
+  async function uploadFile(
     e: React.ChangeEvent<HTMLInputElement>
   ) {
     const file = e.target.files?.[0];
 
     if (!file) return;
 
-    const reader = new FileReader();
+    setError("");
+    setResult(null);
 
-    reader.onload = (event) => {
-      setText(event.target?.result as string);
-      setResult(null);
-      setError("");
-    };
+    try {
+      let extractedText = "";
 
-    reader.readAsText(file);
+      if (file.name.endsWith(".pdf")) {
+        const pdfjsLib = await import("pdfjs-dist");
+
+        const arrayBuffer = await file.arrayBuffer();
+
+        const pdf = await pdfjsLib.getDocument({
+          data: arrayBuffer,
+        }).promise;
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+
+          const content = await page.getTextContent();
+
+          const pageText = content.items
+            .map((item: any) => item.str)
+            .join(" ");
+
+          extractedText += pageText + "\n";
+        }
+      }
+
+      else if (file.name.endsWith(".docx")) {
+        const mammoth = await import("mammoth");
+
+        const arrayBuffer = await file.arrayBuffer();
+
+        const result = await mammoth.extractRawText({
+          arrayBuffer,
+        });
+
+        extractedText = result.value;
+      }
+
+      else {
+        throw new Error(
+          "Please upload a PDF or DOCX file."
+        );
+      }
+
+      if (!extractedText.trim()) {
+        throw new Error(
+          "Could not extract any text from this file."
+        );
+      }
+
+      setText(extractedText);
+
+    } catch (err) {
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to read the file."
+      );
+
+    } finally {
+
+      e.target.value = "";
+    }
   }
 
   return (
@@ -116,11 +184,14 @@ export default function Detector() {
 
         <h1 className="text-5xl font-bold">
           Detect
-          <span className="gradientText"> AI Text</span>
+          <span className="gradientText">
+            {" "}AI Text
+          </span>
         </h1>
 
         <p className="text-slate-400 mt-4">
-          Paste your text below and let HumanTrace analyze it.
+          Paste your text below and let HumanTrace
+          analyze it.
         </p>
 
         <textarea
@@ -152,11 +223,7 @@ export default function Detector() {
             </button>
 
             <button
-              onClick={() => {
-                setText("");
-                setResult(null);
-                setError("");
-              }}
+              onClick={clearText}
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Trash2 size={18} />
@@ -179,7 +246,7 @@ export default function Detector() {
 
               <input
                 type="file"
-                accept=".txt"
+                accept=".pdf,.docx"
                 hidden
                 onChange={uploadFile}
               />
@@ -190,9 +257,15 @@ export default function Detector() {
 
         </div>
 
+        {error && (
+          <div className="mt-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-300">
+            {error}
+          </div>
+        )}
+
         <button
           onClick={analyze}
-          disabled={loading || !text.trim()}
+          disabled={loading}
           className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 flex items-center justify-center gap-3"
         >
           {loading ? (
@@ -205,18 +278,10 @@ export default function Detector() {
           )}
         </button>
 
-        {error && (
-          <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-center text-red-300">
-            {error}
-          </div>
-        )}
-
       </div>
 
       {result && (
-        <ResultCard
-          result={result}
-        />
+        <ResultCard result={result} />
       )}
     </>
   );
