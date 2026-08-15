@@ -29,6 +29,10 @@ export default function Detector() {
       ? 0
       : text.trim().split(/\s+/).length;
 
+  // ============================================================
+  // ANALYZE TEXT
+  // ============================================================
+
   async function analyze() {
     if (!text.trim()) {
       setError("Please enter some text first.");
@@ -40,15 +44,19 @@ export default function Detector() {
     setError("");
 
     try {
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://humantrace.onrender.com";
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/predict`,
+        `${apiUrl}/predict`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            text: text,
+            text: text.trim(),
           }),
         }
       );
@@ -64,35 +72,60 @@ export default function Detector() {
       setResult(data);
 
     } catch (err) {
+      console.error(
+        "HumanTrace API error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
-          : "Something went wrong."
+          : "Unable to connect to HumanTrace API."
       );
+
     } finally {
       setLoading(false);
     }
   }
+
+  // ============================================================
+  // PASTE
+  // ============================================================
 
   async function pasteClipboard() {
     try {
       const clip =
         await navigator.clipboard.readText();
 
+      if (!clip.trim()) {
+        setError("Clipboard is empty.");
+        return;
+      }
+
       setText(clip);
       setResult(null);
       setError("");
 
     } catch {
-      setError("Clipboard access denied.");
+      setError(
+        "Clipboard access denied. Please paste the text manually."
+      );
     }
   }
+
+  // ============================================================
+  // CLEAR
+  // ============================================================
 
   function clearText() {
     setText("");
     setResult(null);
     setError("");
   }
+
+  // ============================================================
+  // SAMPLE
+  // ============================================================
 
   function loadSample() {
     setText(
@@ -102,6 +135,10 @@ export default function Detector() {
     setResult(null);
     setError("");
   }
+
+  // ============================================================
+  // FILE UPLOAD
+  // ============================================================
 
   async function uploadFile(
     e: React.ChangeEvent<HTMLInputElement>
@@ -116,39 +153,70 @@ export default function Detector() {
     try {
       let extractedText = "";
 
-      if (file.name.endsWith(".pdf")) {
-        const pdfjsLib = await import("pdfjs-dist");
+      // --------------------------------------------------------
+      // PDF
+      // --------------------------------------------------------
 
-        const arrayBuffer = await file.arrayBuffer();
+      if (
+        file.name.toLowerCase().endsWith(".pdf")
+      ) {
+        const pdfjsLib =
+          await import("pdfjs-dist");
 
-        const pdf = await pdfjsLib.getDocument({
-          data: arrayBuffer,
-        }).promise;
+        const arrayBuffer =
+          await file.arrayBuffer();
 
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          const page = await pdf.getPage(pageNum);
+        const pdf =
+          await pdfjsLib.getDocument({
+            data: arrayBuffer,
+          }).promise;
 
-          const content = await page.getTextContent();
+        for (
+          let pageNum = 1;
+          pageNum <= pdf.numPages;
+          pageNum++
+        ) {
+          const page =
+            await pdf.getPage(pageNum);
 
-          const pageText = content.items
-            .map((item: any) => item.str)
-            .join(" ");
+          const content =
+            await page.getTextContent();
 
-          extractedText += pageText + "\n";
+          const pageText =
+            content.items
+              .map((item: any) => item.str)
+              .join(" ");
+
+          extractedText +=
+            pageText + "\n";
         }
       }
 
-      else if (file.name.endsWith(".docx")) {
-        const mammoth = await import("mammoth");
+      // --------------------------------------------------------
+      // DOCX
+      // --------------------------------------------------------
 
-        const arrayBuffer = await file.arrayBuffer();
+      else if (
+        file.name.toLowerCase().endsWith(".docx")
+      ) {
+        const mammoth =
+          await import("mammoth");
 
-        const result = await mammoth.extractRawText({
-          arrayBuffer,
-        });
+        const arrayBuffer =
+          await file.arrayBuffer();
 
-        extractedText = result.value;
+        const extracted =
+          await mammoth.extractRawText({
+            arrayBuffer,
+          });
+
+        extractedText =
+          extracted.value;
       }
+
+      // --------------------------------------------------------
+      // INVALID FILE
+      // --------------------------------------------------------
 
       else {
         throw new Error(
@@ -156,15 +224,25 @@ export default function Detector() {
         );
       }
 
+      // --------------------------------------------------------
+      // EMPTY FILE
+      // --------------------------------------------------------
+
       if (!extractedText.trim()) {
         throw new Error(
           "Could not extract any text from this file."
         );
       }
 
-      setText(extractedText);
+      setText(
+        extractedText.trim()
+      );
 
     } catch (err) {
+      console.error(
+        "File upload error:",
+        err
+      );
 
       setError(
         err instanceof Error
@@ -173,14 +251,22 @@ export default function Detector() {
       );
 
     } finally {
-
+      // Allow the same file to be selected again.
       e.target.value = "";
     }
   }
 
+  // ============================================================
+  // UI
+  // ============================================================
+
   return (
     <>
       <div className="glass rounded-[32px] p-10">
+
+        {/* ---------------------------------------------------- */}
+        {/* HEADER */}
+        {/* ---------------------------------------------------- */}
 
         <h1 className="text-5xl font-bold">
           Detect
@@ -190,9 +276,13 @@ export default function Detector() {
         </h1>
 
         <p className="text-slate-400 mt-4">
-          Paste your text below and let HumanTrace
-          analyze it.
+          Paste your text below and let
+          HumanTrace analyze it.
         </p>
+
+        {/* ---------------------------------------------------- */}
+        {/* TEXTAREA */}
+        {/* ---------------------------------------------------- */}
 
         <textarea
           value={text}
@@ -202,41 +292,68 @@ export default function Detector() {
             setError("");
           }}
           placeholder="Paste your article, essay or report here..."
-          className="mt-10 w-full h-72 rounded-3xl bg-slate-900/50 border border-white/10 p-6 outline-none resize-none"
+          className="mt-10 w-full h-72 rounded-3xl bg-slate-900/50 border border-white/10 p-6 outline-none resize-none focus:border-indigo-500/50 transition"
         />
+
+        {/* ---------------------------------------------------- */}
+        {/* STATS + ACTIONS */}
+        {/* ---------------------------------------------------- */}
 
         <div className="flex flex-wrap justify-between mt-6 gap-4">
 
+          {/* Text statistics */}
+
           <div className="text-slate-400">
-            <p>Characters: {text.length}</p>
-            <p>Words: {wordCount}</p>
+            <p>
+              Characters: {text.length}
+            </p>
+
+            <p>
+              Words: {wordCount}
+            </p>
           </div>
+
+          {/* Buttons */}
 
           <div className="flex flex-wrap gap-3">
 
+            {/* Paste */}
+
             <button
               onClick={pasteClipboard}
+              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Clipboard size={18} />
+
               Paste
             </button>
 
+            {/* Clear */}
+
             <button
               onClick={clearText}
+              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Trash2 size={18} />
+
               Clear
             </button>
 
+            {/* Sample */}
+
             <button
               onClick={loadSample}
+              type="button"
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <FileText size={18} />
+
               Sample
             </button>
+
+            {/* Upload */}
 
             <label className="glass px-5 py-3 rounded-xl flex items-center gap-2 cursor-pointer hover:scale-105 transition">
 
@@ -254,8 +371,11 @@ export default function Detector() {
             </label>
 
           </div>
-
         </div>
+
+        {/* ---------------------------------------------------- */}
+        {/* ERROR */}
+        {/* ---------------------------------------------------- */}
 
         {error && (
           <div className="mt-6 rounded-2xl bg-red-500/10 border border-red-500/20 p-4 text-red-300">
@@ -263,14 +383,23 @@ export default function Detector() {
           </div>
         )}
 
+        {/* ---------------------------------------------------- */}
+        {/* ANALYZE BUTTON */}
+        {/* ---------------------------------------------------- */}
+
         <button
           onClick={analyze}
-          disabled={loading}
-          className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 flex items-center justify-center gap-3"
+          type="button"
+          disabled={loading || !text.trim()}
+          className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
         >
           {loading ? (
             <>
-              <Loader2 className="animate-spin" />
+              <Loader2
+                className="animate-spin"
+                size={22}
+              />
+
               Analyzing...
             </>
           ) : (
@@ -279,6 +408,10 @@ export default function Detector() {
         </button>
 
       </div>
+
+      {/* ------------------------------------------------------ */}
+      {/* RESULT */}
+      {/* ------------------------------------------------------ */}
 
       {result && (
         <ResultCard result={result} />
