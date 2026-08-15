@@ -9,33 +9,52 @@ import {
   Bot,
 } from "lucide-react";
 
+interface PredictionResult {
+  prediction: "human" | "ai";
+  confidence: number;
+  ai_probability: number;
+  human_probability: number;
+}
+
 interface ResultCardProps {
-  prediction?: "Human" | "AI";
-  confidence?: number;
+  result: PredictionResult;
   processingTime?: number;
 }
 
 export default function ResultCard({
-  prediction = "Human",
-  confidence = 98.7,
-  processingTime = 0.42,
+  result,
+  processingTime = 0,
 }: ResultCardProps) {
+
+  const prediction =
+    result.prediction === "human"
+      ? "Human"
+      : "AI";
+
+  const confidence =
+    result.confidence * 100;
+
   const human =
-    prediction === "Human"
-      ? confidence
-      : 100 - confidence;
+    result.human_probability * 100;
 
   const ai =
-    prediction === "AI"
-      ? confidence
-      : 100 - confidence;
+    result.ai_probability * 100;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{
+        opacity: 0,
+        y: 40,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
       className="glass rounded-[32px] p-10 mt-10"
     >
+
+      {/* Header */}
+
       <div className="flex items-center justify-between">
 
         <h2 className="text-3xl font-bold">
@@ -46,18 +65,25 @@ export default function ResultCard({
 
       </div>
 
+
       {/* Prediction */}
 
       <div className="mt-10">
 
         <div
-          className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-lg font-semibold
-          ${
-            prediction === "Human"
-              ? "bg-green-500/20 text-green-300"
-              : "bg-red-500/20 text-red-300"
-          }`}
+          className={`
+            inline-flex items-center gap-3
+            px-6 py-3
+            rounded-full
+            text-lg font-semibold
+            ${
+              prediction === "Human"
+                ? "bg-green-500/20 text-green-300"
+                : "bg-red-500/20 text-red-300"
+            }
+          `}
         >
+
           {prediction === "Human" ? (
             <User size={22} />
           ) : (
@@ -65,9 +91,11 @@ export default function ResultCard({
           )}
 
           {prediction} Written
+
         </div>
 
       </div>
+
 
       {/* Confidence */}
 
@@ -75,18 +103,28 @@ export default function ResultCard({
 
         <div className="flex justify-between mb-3">
 
-          <span>Confidence</span>
+          <span>
+            Confidence
+          </span>
 
-          <span>{confidence.toFixed(1)}%</span>
+          <span>
+            {confidence.toFixed(1)}%
+          </span>
 
         </div>
 
         <div className="h-4 rounded-full bg-slate-800 overflow-hidden">
 
           <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${confidence}%` }}
-            transition={{ duration: 1 }}
+            initial={{
+              width: 0,
+            }}
+            animate={{
+              width: `${confidence}%`,
+            }}
+            transition={{
+              duration: 1,
+            }}
             className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400"
           />
 
@@ -94,26 +132,40 @@ export default function ResultCard({
 
       </div>
 
+
       {/* Human vs AI */}
 
       <div className="grid md:grid-cols-2 gap-6 mt-10">
+
+
+        {/* Human */}
 
         <div className="glass rounded-2xl p-6">
 
           <div className="flex justify-between">
 
-            <span>Human Probability</span>
+            <span>
+              Human Probability
+            </span>
 
-            <span>{human.toFixed(1)}%</span>
+            <span>
+              {human.toFixed(1)}%
+            </span>
 
           </div>
 
           <div className="mt-3 h-3 bg-slate-700 rounded-full overflow-hidden">
 
             <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${human}%` }}
-              transition={{ duration: 1 }}
+              initial={{
+                width: 0,
+              }}
+              animate={{
+                width: `${human}%`,
+              }}
+              transition={{
+                duration: 1,
+              }}
               className="h-full bg-green-500"
             />
 
@@ -121,22 +173,35 @@ export default function ResultCard({
 
         </div>
 
+
+        {/* AI */}
+
         <div className="glass rounded-2xl p-6">
 
           <div className="flex justify-between">
 
-            <span>AI Probability</span>
+            <span>
+              AI Probability
+            </span>
 
-            <span>{ai.toFixed(1)}%</span>
+            <span>
+              {ai.toFixed(1)}%
+            </span>
 
           </div>
 
           <div className="mt-3 h-3 bg-slate-700 rounded-full overflow-hidden">
 
             <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${ai}%` }}
-              transition={{ duration: 1 }}
+              initial={{
+                width: 0,
+              }}
+              animate={{
+                width: `${ai}%`,
+              }}
+              transition={{
+                duration: 1,
+              }}
               className="h-full bg-red-500"
             />
 
@@ -145,6 +210,7 @@ export default function ResultCard({
         </div>
 
       </div>
+
 
       {/* Summary */}
 
@@ -158,15 +224,20 @@ export default function ResultCard({
 
           {prediction === "Human"
             ? "The writing exhibits natural sentence variation, contextual flow, and linguistic patterns commonly associated with human-authored content."
-            : "The writing demonstrates characteristics frequently observed in AI-generated text, including repetitive phrasing and consistent structural patterns."}
+            : "The writing demonstrates characteristics frequently observed in AI-generated text, including repetitive phrasing and consistent structural patterns."
+          }
 
         </p>
 
       </div>
 
+
       {/* Stats */}
 
       <div className="grid md:grid-cols-2 gap-6 mt-10">
+
+
+        {/* Processing */}
 
         <div className="glass rounded-2xl p-6 flex gap-4 items-center">
 
@@ -175,9 +246,7 @@ export default function ResultCard({
           <div>
 
             <div className="font-semibold">
-
               Processing Time
-
             </div>
 
             <div className="text-slate-400">
@@ -190,6 +259,9 @@ export default function ResultCard({
 
         </div>
 
+
+        {/* Model */}
+
         <div className="glass rounded-2xl p-6 flex gap-4 items-center">
 
           <Brain className="text-indigo-400" />
@@ -197,15 +269,11 @@ export default function ResultCard({
           <div>
 
             <div className="font-semibold">
-
               Model
-
             </div>
 
             <div className="text-slate-400">
-
               DistilBERT
-
             </div>
 
           </div>

@@ -10,10 +10,18 @@ import {
 } from "lucide-react";
 import ResultCard from "./ResultCard";
 
+type PredictionResult = {
+  prediction: "human" | "ai";
+  confidence: number;
+  ai_probability: number;
+  human_probability: number;
+};
+
 export default function Detector() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(false);
+  const [result, setResult] = useState<PredictionResult | null>(null);
+  const [error, setError] = useState("");
 
   const wordCount =
     text.trim() === "" ? 0 : text.trim().split(/\s+/).length;
@@ -22,19 +30,54 @@ export default function Detector() {
     if (!text.trim()) return;
 
     setLoading(true);
-    setResult(false);
+    setResult(null);
+    setError("");
 
-    // Temporary fake loading
-    setTimeout(() => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:5000/predict",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: text,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Prediction failed."
+        );
+      }
+
+      setResult(data);
+
+    } catch (error) {
+
+      console.error(error);
+
+      setError(
+        "Unable to connect to the HumanTrace backend."
+      );
+
+    } finally {
+
       setLoading(false);
-      setResult(true);
-    }, 1800);
+
+    }
   }
 
   async function pasteClipboard() {
     try {
       const clip = await navigator.clipboard.readText();
       setText(clip);
+      setResult(null);
+      setError("");
     } catch {
       alert("Clipboard access denied.");
     }
@@ -44,6 +87,9 @@ export default function Detector() {
     setText(
       `Artificial intelligence has transformed modern software development by enabling automation, natural language processing, and intelligent decision-making. Developers now integrate machine learning models into applications to improve user experiences and increase productivity.`
     );
+
+    setResult(null);
+    setError("");
   }
 
   function uploadFile(
@@ -57,6 +103,8 @@ export default function Detector() {
 
     reader.onload = (event) => {
       setText(event.target?.result as string);
+      setResult(null);
+      setError("");
     };
 
     reader.readAsText(file);
@@ -77,7 +125,11 @@ export default function Detector() {
 
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            setResult(null);
+            setError("");
+          }}
           placeholder="Paste your article, essay or report here..."
           className="mt-10 w-full h-72 rounded-3xl bg-slate-900/50 border border-white/10 p-6 outline-none resize-none"
         />
@@ -100,7 +152,11 @@ export default function Detector() {
             </button>
 
             <button
-              onClick={() => setText("")}
+              onClick={() => {
+                setText("");
+                setResult(null);
+                setError("");
+              }}
               className="glass px-5 py-3 rounded-xl flex items-center gap-2 hover:scale-105 transition"
             >
               <Trash2 size={18} />
@@ -136,7 +192,7 @@ export default function Detector() {
 
         <button
           onClick={analyze}
-          disabled={loading}
+          disabled={loading || !text.trim()}
           className="mt-10 w-full rounded-2xl bg-indigo-600 py-5 text-lg font-semibold hover:bg-indigo-500 transition disabled:opacity-50 flex items-center justify-center gap-3"
         >
           {loading ? (
@@ -149,9 +205,19 @@ export default function Detector() {
           )}
         </button>
 
+        {error && (
+          <div className="mt-6 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-center text-red-300">
+            {error}
+          </div>
+        )}
+
       </div>
 
-      {result && <ResultCard />}
+      {result && (
+        <ResultCard
+          result={result}
+        />
+      )}
     </>
   );
 }
